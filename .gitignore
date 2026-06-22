@@ -1,3 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
+.env
+.ruff_cache/
+test.db
