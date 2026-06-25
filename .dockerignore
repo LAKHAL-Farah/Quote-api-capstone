@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+test.db
+.git/
+.github/
+docker-findings-phase1a.md
