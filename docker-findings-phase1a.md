@@ -49,3 +49,30 @@ switching to exec-form CMD ["uvicorn", ...].
 - Non-root user (appuser, uid 1001) — confirmed via `docker run --rm ... whoami`
 - HEALTHCHECK calling the app's own /health endpoint — confirmed container
   shows (healthy) status in `docker ps` after the start_period grace window
+
+---
+
+## Phase 3 — Compose startup race condition
+
+### Symptom
+On `docker compose down -v && docker compose up` (forcing a fresh Postgres
+volume initialization), the api container would start and attempt a database
+connection before Postgres had finished its first-time initialization,
+sometimes intermittently rather than every time.
+
+### Root cause
+`depends_on: - db` (list form) only guarantees the db CONTAINER has started,
+not that the Postgres PROCESS inside it is actually ready to accept
+connections. These are different moments, especially during first-time
+volume initialization.
+
+### Fix
+Added a `healthcheck` to the db service using `pg_isready` (Postgres's own
+readiness probe), and changed api's `depends_on` to the object form:
+`depends_on: db: condition: service_healthy`. Confirmed via `docker compose ps`
+that api does not start until db's status shows `(healthy)`.
+
+### Additional verification
+Confirmed named volumes persist data across `docker compose down` (no -v),
+and confirmed `-v` correctly wipes the volume — verified both behaviors
+directly rather than assuming.
