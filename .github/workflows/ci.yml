@@ -52,7 +52,7 @@ jobs:
       - name: Run SQLite-based unit tests
         run: pytest tests/test_quotes.py -v
       - name: Run postgres-backed tests
-        run: pytest tests/test_quotes_postgres.py -v4
+        run: pytest tests/test_quotes_postgres.py -v
         env:
           TEST_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
 
