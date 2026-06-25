@@ -55,5 +55,17 @@ jobs:
         run: python -m pytest tests/test_quotes_postgres.py -v
         env:
           TEST_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-
-    
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: quote-api:ci-build
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
