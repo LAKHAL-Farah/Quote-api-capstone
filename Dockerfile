@@ -4,16 +4,27 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --upgrade "pip>=26.1" "setuptools>=80.0" "wheel>=0.46.2"
+RUN pip install --upgrade "pip>=26.1" "setuptools>=82.0.1" "wheel>=0.46.2"
 
 RUN pip install --no-cache-dir --target=/install -r requirements.txt
-
 #____Stage 2 : Production________________
 FROM python:3.11-slim AS Production
 WORKDIR /app
 
 COPY --from=Builder /install /usr/local/lib/python3.11/site-packages
+COPY --from=Builder /usr/local/lib/python3.11/site-packages/setuptools \
+     /usr/local/lib/python3.11/site-packages/setuptools
+COPY --from=Builder /usr/local/lib/python3.11/site-packages/setuptools-82.0.1.dist-info \
+     /usr/local/lib/python3.11/site-packages/setuptools-82.0.1.dist-info
+COPY --from=Builder /usr/local/lib/python3.11/site-packages/wheel \
+     /usr/local/lib/python3.11/site-packages/wheel
+COPY --from=Builder /usr/local/lib/python3.11/site-packages/wheel-0.46.3.dist-info \
+     /usr/local/lib/python3.11/site-packages/wheel-0.46.3.dist-info
 COPY ./app ./app
+
+
+RUN pip install --upgrade "pip>=26.1" "setuptools>=82.0.1" "wheel>=0.46.2" \
+    && pip cache purge
 
 RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false appuser && \
