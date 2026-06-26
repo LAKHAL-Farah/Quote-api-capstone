@@ -104,3 +104,29 @@ NOT caught by explicit invalidation, since the API never sees them.
 The TTL is what bounds staleness in that case — confirmed by testing
 with a shortened TTL (10s) and confirming the API self-corrected after
 the TTL expired, with no application code change required.
+
+---
+
+## Phase 5 — Trivy vulnerability gate, verified with a real CVE
+
+### What was added
+Trivy scanning added to the CI `build` job, configured to fail the
+pipeline (exit-code: 1) on any HIGH or CRITICAL severity vulnerability
+with a known fix available (ignore-unfixed: true, so the gate only
+blocks on actionable findings).
+
+### Verification
+Deliberately pinned an old, known-vulnerable Pillow version
+(9.0.0) in requirements.txt and pushed it. Confirmed:
+- `build` job failed specifically at the Trivy scan step, with a
+  real CVE listed in the output
+- `push` job did not run at all (correctly blocked via `needs: build`)
+- No image with this vulnerability was ever published to GHCR
+
+Reverted the change via `git revert` (kept in history deliberately,
+rather than amended away) and confirmed the pipeline returned to green,
+with `push` completing successfully afterward.
+
+This confirms the scan is a functioning gate, not just a report —
+verified by intentionally triggering and then clearing a real failure,
+not just inspecting the YAML.
