@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 import random
 import socket 
-
+from app.cache import get_cached_quote, set_cached_quote, invalidate_quote_cache
 
 from app.database import get_db
 from app.models import Quote
 from app.schemas import QuoteCreate, QuoteRead
+from app.cache import r as redis_client
 
 
 app = FastAPI(title="Quote API", description="A simple API to manage quotes", version="1.0.0")
@@ -22,9 +23,20 @@ def health_check(db:Session=Depends(get_db)):
     except Exception as e:
         db_status=f"database connection failed: {e}"
 
+
+    try:
+        redis_client.ping()
+        redis_status="ok"
+    except Exception as e:
+        redis_status= f"error: {e}"
+
+
+    overall_status= "ok" if db_status == "ok" and redis_status=="ok" else "degraded"
+
     return{
-        "status":"ok" if db_status=="ok" else "degraded",
+        "status":overall_status,
         "database":db_status,
+        "redis": redis_status,
         "hostname":socket.gethostname()
     }
 
@@ -43,10 +55,29 @@ def get_random_quote(db:Session = Depends(get_db)):
 
 @app.get("/quote/{quote_id}", response_model=QuoteRead)
 def get_quote(quote_id:int, db:Session=Depends(get_db)):
+
+    cached = get_cached_quote(quote_id)
+    if cached:
+        return cached
+
+
     quote= db.query(Quote).filter(Quote.id==quote_id).first()
     if quote is None:
         raise HTTPException(status_code=404,
                             detail=f"Quote with id {quote_id} not found")
+    
+    quote_dict = {
+        "id": quote.id,
+        "text": quote.text,
+        "author": quote.author,
+        "category": quote.category,
+        "created_at": quote.created_at.isoformat(),
+
+    }
+
+    set_cached_quote(quote_id, quote_dict)
+    
+    
     return quote
 
 
@@ -67,3 +98,20 @@ def delete_quote(quote_id:int, db:Session=Depends(get_db)):
     
     db.delete(quote)
     db.commit()# another comment
+    invalidate_quote_cache(quote_id)
+
+
+
+@app.put("/quote/{quote_id}", response_model=QuoteRead)
+def update_quote(quote_id:int, quote_in: QuoteCreate, db: Session=Depends(get_db)):
+    quote= db.query(Quote).filter(Quote.id== quote_id).first()
+
+    if quote is None:
+        raise HTTPException(status_code=404, detail=f"Quote {quote_id} not found")
+    quote.text= quote_in.text
+    quote.author=quote_in.author
+    quote.category= quote_in.category
+    db.commit()
+    db.refresh(quote)
+    invalidate_quote_cache(quote_id)
+    return quote

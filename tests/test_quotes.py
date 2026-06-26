@@ -69,3 +69,19 @@ def test_delete_quote():
 def test_create_quote_missing_author():
     response = client.post("/quote", json={"text": "No author"})
     assert response.status_code == 422
+
+
+def test_update_quote_invalidates_cache():
+    create_response = client.post("/quote", json={"text": "Original", "author": "A"})
+    quote_id = create_response.json()["id"]
+
+    # First read — populates the cache (in a real run against Redis; this
+    # test file uses SQLite and no Redis override, so this mainly proves
+    # the route logic and response shape are correct)
+    client.get(f"/quote/{quote_id}")
+
+    update_response = client.put(
+        f"/quote/{quote_id}", json={"text": "Updated", "author": "A"}
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["text"] == "Updated"

@@ -5,8 +5,11 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://quoteuser:quotepass@db:5432/quotes
+      REDIS_HOST: redis
     depends_on:
         db:
+          condition: service_healthy
+        redis:
           condition: service_healthy
     networks:
       - quote-network
@@ -24,6 +27,16 @@ services:
       start_period: 10s
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    networks:
+      - quote-network
+      
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     networks:
       - quote-network
 
