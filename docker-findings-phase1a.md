@@ -76,3 +76,31 @@ that api does not start until db's status shows `(healthy)`.
 Confirmed named volumes persist data across `docker compose down` (no -v),
 and confirmed `-v` correctly wipes the volume — verified both behaviors
 directly rather than assuming.
+
+---
+
+## Phase 4 — Stale cache data
+
+### Symptom
+After caching a quote via GET /quote/{id}, updating that quote's text
+directly in Postgres (bypassing the API) resulted in the API continuing
+to serve the old, cached text indefinitely.
+
+### Root cause
+The initial caching implementation stored values in Redis with no
+expiry (`r.set()` with no `ex` parameter) — once cached, a value had
+no mechanism to ever be considered stale.
+
+### Fix
+1. Added a TTL (5 minutes, +/- 30s jitter to avoid synchronized mass
+   expiry / thundering herd) to every cache write.
+2. Added explicit `invalidate_quote_cache()` calls on the API's own
+   write paths (PUT, DELETE) so writes through the API self-correct
+   immediately rather than waiting out the TTL.
+
+### Documented limitation
+Writes that bypass the API entirely (e.g. a direct SQL UPDATE) are
+NOT caught by explicit invalidation, since the API never sees them.
+The TTL is what bounds staleness in that case — confirmed by testing
+with a shortened TTL (10s) and confirming the API self-corrected after
+the TTL expired, with no application code change required.
