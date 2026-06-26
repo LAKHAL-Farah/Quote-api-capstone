@@ -4,10 +4,9 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade "pip>=26.1" "setuptools>=80.0" "wheel>=0.46.2"
 
 RUN pip install --no-cache-dir --target=/install -r requirements.txt
-
 
 #____Stage 2 : Production________________
 FROM python:3.11-slim AS Production
