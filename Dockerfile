@@ -4,7 +4,7 @@ FROM python:3.11 AS Builder
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
+RUN pip install --upgrade pip setuptools wheel
 #____Stage 2 : Production________________
 
 FROM python:3.11-slim AS Production
