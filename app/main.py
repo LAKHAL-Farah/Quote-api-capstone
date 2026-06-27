@@ -98,6 +98,7 @@ def create_quote(quote_in: QuoteCreate, db: Session = Depends(get_db)):
     db.add(quote)
     db.commit()
     db.refresh(quote)
+    invalidate_quote_cache(quote.id)
     db.expire_all()
 
     return serialize_quote(quote)

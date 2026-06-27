@@ -44,6 +44,19 @@ def test_create_quote():
     assert response.json()["text"] == payload["text"]
 
 
+def test_create_quote_invalidates_existing_cache(monkeypatch):
+    invalidated_ids = []
+    monkeypatch.setattr(
+        "app.main.invalidate_quote_cache", lambda quote_id: invalidated_ids.append(quote_id)
+    )
+
+    response = client.post("/quote", json={"text": "New quote", "author": "Tester"})
+    quote_id = response.json()["id"]
+
+    assert response.status_code == 201
+    assert invalidated_ids == [quote_id]
+
+
 def test_get_quote_by_id():
     create_response = client.post("/quote", json={"text": "Findable", "author": "Someone"})
     quote_id = create_response.json()["id"]
