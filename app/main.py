@@ -17,6 +17,15 @@ from app.worker import celery_app
 app = FastAPI(title="Quote API", description="A simple API to manage quotes", version="1.0.0")
 
 
+def serialize_quote(quote: Quote):
+    return {
+        "id": quote.id,
+        "text": quote.text,
+        "author": quote.author,
+        "category": quote.category,
+        "created_at": quote.created_at.isoformat(),
+    }
+
 
 @app.get("/health")
 def health_check(db:Session=Depends(get_db)):
@@ -46,52 +55,52 @@ def health_check(db:Session=Depends(get_db)):
 
 
 @app.get("/quote/random", response_model=QuoteRead)
-def get_random_quote(db:Session = Depends(get_db)):
+def get_random_quote(db: Session = Depends(get_db)):
     count = db.query(Quote).count()
+
     if count == 0:
         raise HTTPException(status_code=404, detail="No quotes found")
+
     random_offset = random.randint(0, count - 1)
-    quote = db.query(Quote).offset(random_offset).first()
+
+    quote = (
+        db.query(Quote)
+        .order_by(Quote.id)   # ✅ FIX HERE
+        .offset(random_offset)
+        .first()
+    )
+
     return quote
-    
 
 
 @app.get("/quote/{quote_id}", response_model=QuoteRead)
-def get_quote(quote_id:int, db:Session=Depends(get_db)):
+def get_quote(quote_id: int, db: Session = Depends(get_db)):
 
     cached = get_cached_quote(quote_id)
     if cached:
         return cached
 
-
-    quote= db.query(Quote).filter(Quote.id==quote_id).first()
+    quote = db.query(Quote).filter(Quote.id == quote_id).first()
     if quote is None:
-        raise HTTPException(status_code=404,
-                            detail=f"Quote with id {quote_id} not found")
-    
-    quote_dict = {
-        "id": quote.id,
-        "text": quote.text,
-        "author": quote.author,
-        "category": quote.category,
-        "created_at": quote.created_at.isoformat(),
+        raise HTTPException(status_code=404, detail=f"Quote with id {quote_id} not found")
 
-    }
+    quote_dict = serialize_quote(quote)
 
     set_cached_quote(quote_id, quote_dict)
-    
-    
+
     return quote_dict
 
 
-@app.post('/quote', response_model=QuoteRead , status_code=201)
-def create_quote(quote_in:QuoteCreate,db:Session=Depends(get_db)):
+@app.post('/quote', response_model=QuoteRead, status_code=201)
+def create_quote(quote_in: QuoteCreate, db: Session = Depends(get_db)):
+
     quote = Quote(**quote_in.model_dump())
     db.add(quote)
     db.commit()
     db.refresh(quote)
-    return quote
+    db.expire_all()
 
+    return serialize_quote(quote)
 
 @app.delete("/quote/{quote_id}" ,status_code=204)
 def delete_quote(quote_id:int, db:Session=Depends(get_db)):
