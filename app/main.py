@@ -81,7 +81,7 @@ def get_quote(quote_id:int, db:Session=Depends(get_db)):
     set_cached_quote(quote_id, quote_dict)
     
     
-    return quote
+    return quote_dict
 
 
 @app.post('/quote', response_model=QuoteRead , status_code=201)
