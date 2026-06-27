@@ -9,6 +9,9 @@ from app.database import get_db
 from app.models import Quote
 from app.schemas import QuoteCreate, QuoteRead
 from app.cache import r as redis_client
+from app.worker import generate_digest
+from celery.result import AsyncResult
+from app.worker import celery_app
 
 
 app = FastAPI(title="Quote API", description="A simple API to manage quotes", version="1.0.0")
@@ -115,3 +118,29 @@ def update_quote(quote_id:int, quote_in: QuoteCreate, db: Session=Depends(get_db
     db.refresh(quote)
     invalidate_quote_cache(quote_id)
     return quote
+
+
+
+@app.post("/digest/trigger")
+def trigger_digest(num_quotes: int = 5):
+    task = generate_digest.delay(num_quotes)
+    return {
+        "task_id": task.id,
+        "status": "queued"
+    }
+
+
+@app.get("/digest/status/{task_id}")
+def digest_status(task_id: str):
+    task = AsyncResult(task_id, app=celery_app)
+
+    if task.ready():
+        return {
+            "status": task.status,
+            "result": task.result
+        }
+
+    return {
+        "status": task.status,
+        "result": None
+    }
