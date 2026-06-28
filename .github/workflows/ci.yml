@@ -64,14 +64,12 @@ jobs:
           cache: 'pip'
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
-      - name: Run SQLite-based unit tests
-        run: python -m pytest tests/test_quotes.py -v
-      - name: Run postgres-backed tests
-        run: python -m pytest tests/test_quotes_postgres.py -v
-        env:
-          TEST_DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-      - name: Run SQLite-based unit tests
+      - name: Run unit tests (SQLite + worker)
         run: python -m pytest tests/test_quotes.py tests/test_worker.py -v
+      - name: Run integration tests (Postgres)
+        run: python -m pytest tests/test_quotes_postgres.py -v
+  env:
+    DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
   build:
     runs-on: ubuntu-latest
     needs: test

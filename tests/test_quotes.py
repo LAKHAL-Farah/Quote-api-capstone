@@ -1,4 +1,6 @@
 import pytest 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -27,6 +29,15 @@ def setup_and_teardown_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def disable_cache():
+    """Patch all cache functions so Redis is never touched in unit tests."""
+    with patch("app.main.get_cached_quote", return_value=None), \
+         patch("app.main.set_cached_quote"), \
+         patch("app.main.invalidate_quote_cache"):
+        yield
 
 client=TestClient(app)
 

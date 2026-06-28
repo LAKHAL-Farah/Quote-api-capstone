@@ -65,7 +65,7 @@ def get_random_quote(db: Session = Depends(get_db)):
 
     quote = (
         db.query(Quote)
-        .order_by(Quote.id)   # ✅ FIX HERE
+        .order_by(Quote.id)   
         .offset(random_offset)
         .first()
     )
