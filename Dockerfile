@@ -1,5 +1,5 @@
 # ===== Stage 1: Builder =====
-FROM python:3.11 AS builder
+FROM python:3.11@sha256:9800957d2a88867f853ce6072ae1669e37fa269cc6f76009fa1aef4757f62212 AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 # ===== Stage 2: Production =====
-FROM python:3.11-slim AS production
+FROM python:3.11-slim@sha256:cdbd05fb6f457ca275ff51ce00d93d865ca0b6a25f5ffb08262d94f6835771e5 AS production
 
 WORKDIR /app
 
