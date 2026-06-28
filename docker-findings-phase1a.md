@@ -239,3 +239,42 @@ this requires deliberately re-pinning periodically to receive base
 image security patches, rather than getting them automatically on
 every rebuild — a manual-control-vs-automatic-patching tradeoff,
 not a strictly "more secure in all respects" choice.
+
+---
+
+## Phase 9 — Observability stack
+
+### What was added
+Structured JSON logging via structlog (replacing implicit print-style
+output), an HTTP middleware logging every request with path, method,
+status_code, and hostname as individually queryable fields, and a
+Loki + Promtail + Grafana stack for centralized log aggregation and
+visualization.
+
+### Verification
+Confirmed structured JSON output first via plain `docker compose logs`,
+before adding any aggregation infrastructure, isolating the format
+change from the infrastructure addition. Queried real traffic in
+Grafana's Explore view using Loki's field-level JSON filtering
+(`| json | status_code = 404`) to isolate a specific deliberately-
+triggered event among many requests — direct proof of structured
+querying, not just "logs exist somewhere."
+
+Built a two-panel dashboard (request rate, error rate) aggregating
+across all 3 api replicas via a container-name regex match, confirming
+log aggregation correctly unifies multi-replica output rather than
+requiring per-replica inspection.
+
+Verified persistence specifically: restarted the api container and
+confirmed prior log history remained queryable in Grafana afterward,
+proving logs live in Loki (a separate, persistent service) rather
+than in any individual container's own filesystem — consistent with
+the "containers are disposable" principle established back in Phase 0.
+
+### Security note
+Promtail requires read access to the Docker socket to discover
+containers automatically. Mounted read-only (:ro) specifically, since
+Promtail only needs to read container metadata/logs, never to create,
+modify, or stop containers — the same narrow-exception principle
+applied throughout Phase 8's hardening work, rather than a blanket
+socket mount.
