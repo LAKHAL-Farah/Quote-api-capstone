@@ -4,3 +4,4 @@ __pycache__/
 .env
 .ruff_cache/
 test.db
+test_worker.db
