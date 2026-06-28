@@ -12,7 +12,21 @@ from app.cache import r as redis_client
 from app.worker import generate_digest
 from celery.result import AsyncResult
 from app.worker import celery_app
+import logging
+import sys
+import structlog
 
+structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        structlog.processors.JSONRenderer(),
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+)
+logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+logger = structlog.get_logger()
 
 app = FastAPI(title="Quote API", description="A simple API to manage quotes", version="1.0.0")
 
@@ -153,3 +167,17 @@ def digest_status(task_id: str):
         "status": task.status,
         "result": None
     }
+
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    response = await call_next(request)
+    logger.info(
+        "request_completed",
+        path=request.url.path,
+        method=request.method,
+        status_code=response.status_code,
+        hostname=socket.gethostname(),
+    )
+    return response
