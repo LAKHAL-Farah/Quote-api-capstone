@@ -23,21 +23,20 @@ FROM python:3.11-slim AS production
 
 WORKDIR /app
 
-# Copy the virtual environment from the builder
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy application source
 COPY ./app ./app
 
-# Upgrade packaging tools and clear pip cache
-RUN pip install --upgrade \
+# Fix vulnerable base-image packages in /usr/local/lib (found by Trivy)
+# These are separate from /opt/venv — system pip must be called explicitly
+RUN /usr/local/bin/python -m pip install --upgrade \
     "pip>=26.1" \
     "setuptools>=82.0.1" \
     "wheel>=0.46.2" \
+    "jaraco.context>=6.1.0" \
     && pip cache purge
 
-# Create non-root user
 RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin appuser && \
     chown -R appuser:appgroup /app
