@@ -1,5 +1,4 @@
-# Phase 1a findings — naive Dockerfile
-
+# All Phases findings 
 ## Image size
 quote-api:naive size: [paste the actual number from `docker images` here]
 
