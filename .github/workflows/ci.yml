@@ -68,8 +68,8 @@ jobs:
         run: python -m pytest tests/test_quotes.py tests/test_worker.py -v
       - name: Run integration tests (Postgres)
         run: python -m pytest tests/test_quotes_postgres.py -v
-  env:
-    DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
   build:
     runs-on: ubuntu-latest
     needs: test
