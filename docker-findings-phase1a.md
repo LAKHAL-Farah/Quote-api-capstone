@@ -197,3 +197,45 @@ throughout. This is a real gap versus an actual orchestrator (e.g.
 Kubernetes), which would detect the failure and reroute/replace
 automatically — noted here as a deliberate scope boundary for this
 phase, not an oversight.
+
+---
+
+## Phase 8 — Container hardening pass
+
+### What was applied, per service (deliberately not uniform)
+- api, worker: read_only filesystem (tmpfs /tmp only), no-new-privileges,
+  cap_drop ALL with nothing added back — these services have no
+  legitimate need to write to disk or hold any elevated capability.
+- nginx: read_only filesystem with tmpfs at /var/cache/nginx and
+  /var/run (paths identified by testing read_only alone first and
+  reading the resulting startup error), cap_drop ALL with CHOWN,
+  SETGID, and NET_BIND_SERVICE added back (binding port 80 requires
+  the latter specifically).
+- db, redis: filesystem left writable (Postgres/Redis both have
+  legitimate, continuous write needs that are higher-risk to mis-scope
+  than the security benefit of forcing read-only here), but
+  no-new-privileges and capability restrictions still applied.
+  db specifically needed CHOWN, DAC_OVERRIDE, FOWNER, SETGID added
+  back for its own initialization process; redis needed nothing added
+  back beyond the drop.
+
+### Verification
+For api: confirmed via `docker compose exec api touch /app/testfile`
+that writes outside /tmp are rejected with a real permission error,
+and confirmed /tmp itself remains writable as the deliberate exception.
+
+For nginx and db: confirmed via docker compose logs that startup
+succeeds cleanly with the exact capability set applied, after
+initially hitting and reading real startup failures with overly
+restrictive settings, then adding back only the specific capabilities
+those failures named.
+
+### Digest pinning
+Replaced mutable FROM python:3.11 / python:3.11-slim tags with
+sha256-digest-pinned references, closing the supply-chain risk
+described in the original reference material (a tag can be silently
+repointed by image maintainers; a digest cannot). Tradeoff noted:
+this requires deliberately re-pinning periodically to receive base
+image security patches, rather than getting them automatically on
+every rebuild — a manual-control-vs-automatic-patching tradeoff,
+not a strictly "more secure in all respects" choice.
