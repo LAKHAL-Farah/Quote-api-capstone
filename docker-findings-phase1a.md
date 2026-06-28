@@ -162,3 +162,38 @@ than via FastAPI's Depends(get_db), since Celery tasks run outside any
 HTTP request context. This means testing requires directly patching
 the module-level SessionLocal reference, a less elegant pattern than
 main.py's dependency-injection-based test overrides.
+
+---
+
+## Phase 7 — Horizontal scaling behind Nginx
+
+### What was added
+Nginx as the sole public entrypoint (port 80), load-balancing across
+multiple `api` replicas via Docker Compose's --scale flag and Nginx's
+upstream block resolving the `api` service name to multiple container
+addresses. The `api` service no longer exposes a port directly.
+
+### Verification
+Ran `docker compose up -d --scale api=3`, then sent repeated requests
+to /health and confirmed, via the hostname field, that DIFFERENT
+container instances answered different requests across a short loop
+of identical curl calls — direct proof of load distribution, not
+assumed from config alone.
+
+Confirmed Redis-backed caching (Phase 4) remained consistent across
+replicas — a value cached via one replica's request was immediately
+visible to requests served by other replicas, since the cache lives
+in a separate, shared Redis service rather than in any one replica's
+own memory. This specifically validates the earlier decision to use
+Redis instead of an in-process cache.
+
+### Honest limitation found
+Deliberately killed one api replica with `docker kill` (simulating a
+crash, not a graceful stop) and observed that plain Nginx + Compose
+does not actively health-check or reroute away from a dead replica —
+some in-flight requests to that replica briefly failed before it was
+manually replaced. The other two replicas continued serving traffic
+throughout. This is a real gap versus an actual orchestrator (e.g.
+Kubernetes), which would detect the failure and reroute/replace
+automatically — noted here as a deliberate scope boundary for this
+phase, not an oversight.
