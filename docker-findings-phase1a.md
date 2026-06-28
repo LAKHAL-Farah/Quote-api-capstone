@@ -130,3 +130,35 @@ with `push` completing successfully afterward.
 This confirms the scan is a functioning gate, not just a report —
 verified by intentionally triggering and then clearing a real failure,
 not just inspecting the YAML.
+
+---
+
+## Phase 6 — Async worker pattern
+
+### What was added
+A Celery worker (app/worker.py), running as a separate Compose service
+("worker") built from the SAME image as "api" — only the startup
+command differs (Compose's `command:` overrides the Dockerfile's CMD).
+Redis, already present for caching, now also serves as the Celery
+broker — one piece of infrastructure, two distinct roles.
+
+### Verification
+Triggered POST /digest/trigger and confirmed the response returned in
+under 1 second. Temporarily added a 15-second artificial delay inside
+the task and confirmed:
+- The trigger endpoint still responded instantly
+- Unrelated endpoints (/quote/random, /health) remained fully responsive
+  for the entire 15 seconds the task was running in the worker container
+- The task's status correctly transitioned from pending to SUCCESS only
+  after the full delay elapsed, checked via GET /digest/status/{id}
+
+This confirms the API's responsiveness is genuinely decoupled from
+background task duration, not just superficially asynchronous-looking
+code that still blocks under the hood.
+
+### Noted limitation in worker testing
+worker.py manages its own DB session directly (SessionLocal()) rather
+than via FastAPI's Depends(get_db), since Celery tasks run outside any
+HTTP request context. This means testing requires directly patching
+the module-level SessionLocal reference, a less elegant pattern than
+main.py's dependency-injection-based test overrides.
